@@ -1,0 +1,1 @@
+Welcome to this short VibeVoice test. The model is running locally on an NVIDIA GPU and is generating this audio from text. If you can hear this sentence clearly, the podcast pipeline is ready for a longer episode.

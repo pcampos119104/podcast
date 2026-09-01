@@ -1,0 +1,18 @@
+services:
+  vibevoice:
+    build:
+      context: .
+      dockerfile: containers/vibevoice/Dockerfile
+    image: podcast-vibevoice:1.5b
+    gpus: all
+    shm_size: 8gb
+    working_dir: /workspace
+    environment:
+      HF_HOME: /workspace/.cache/huggingface
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
+    volumes:
+      - .:/workspace
+      - ./.cache/huggingface:/workspace/.cache/huggingface
+    entrypoint: ["python", "src/generate_tts.py"]
