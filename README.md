@@ -6,19 +6,39 @@ Local MP3 podcast generator using VibeVoice 1.5B on an NVIDIA GPU through Docker
 
 The project is a local, batch-oriented audio pipeline. The host only needs Docker, the NVIDIA runtime, and `just`; all model and audio-processing dependencies run inside the `podcast-vibevoice:1.5b` container.
 
-```mermaid
-flowchart LR
-    Script[UTF-8 text script] --> Just[just create]
-    Voice[Reference WAV] --> Just
-    Just --> Compose[Docker Compose]
-    Compose --> Container[podcast-vibevoice:1.5b container]
-    Container --> TTS[generate_tts.py]
-    TTS --> Infer[vibevoice_infer.py]
-    Infer --> GPU[NVIDIA GPU: CUDA / PyTorch BF16]
-    GPU --> WAV[Temporary 24 kHz WAV]
-    WAV --> FFmpeg[FFmpeg]
-    FFmpeg --> MP3[MP3 or WAV in output/]
-    Infer <--> HF[Hugging Face checkpoint cache]
+```text
+Host
+  UTF-8 text script + reference WAV
+              |
+              v
+         just create
+              |
+              v
+        Docker Compose
+              |
+              v
+  podcast-vibevoice:1.5b container
+  /workspace <----------------------> repository on the host
+  /workspace/.cache/huggingface <--> persistent Hugging Face cache
+              |
+              v
+      src/generate_tts.py
+              |
+              +--> src/vibevoice_infer.py --> VibeVoice 1.5B
+              |                                  |
+              |                                  v
+              |                         PyTorch BF16 / CUDA
+              |                                  |
+              |                    FlashAttention 2 or SDPA fallback
+              |                                  |
+              |                                  v
+              |                         temporary 24 kHz WAV
+              |
+              v
+ FFmpeg: speed, conversion, and metadata
+              |
+              v
+       output/*.mp3 or output/*.wav
 ```
 
 ### Runtime Layers
