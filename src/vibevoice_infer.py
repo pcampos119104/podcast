@@ -44,7 +44,7 @@ def load_model(model_id: str, revision: str, torch: Any) -> tuple[Any, Any]:
             attn_implementation="flash_attention_2",
         )
     except Exception as error:
-        print(f"FlashAttention 2 indisponível ({error}); usando SDPA.")
+        print(f"FlashAttention 2 unavailable ({error}); using SDPA.")
         model = model_class.from_pretrained(
             model_id,
             revision=revision,
@@ -59,7 +59,7 @@ def load_model(model_id: str, revision: str, torch: Any) -> tuple[Any, Any]:
 def main() -> None:
     torch = import_module("torch")
     parser = argparse.ArgumentParser(
-        description="Gera WAV de narrador único com VibeVoice 1.5B em CUDA."
+        description="Generate a single-narrator WAV with VibeVoice 1.5B on CUDA."
     )
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -72,19 +72,19 @@ def main() -> None:
     args = parser.parse_args()
 
     if not torch.cuda.is_available():
-        parser.error("CUDA não está disponível no container")
+        parser.error("CUDA is not available in the container")
     if not args.input.is_file():
-        parser.error(f"roteiro não encontrado: {args.input}")
+        parser.error(f"script not found: {args.input}")
     if not args.voice_sample.is_file():
-        parser.error(f"amostra de voz não encontrada: {args.voice_sample}")
+        parser.error(f"voice sample not found: {args.voice_sample}")
     if args.cfg_scale <= 0:
-        parser.error("--cfg-scale deve ser maior que zero")
+        parser.error("--cfg-scale must be greater than zero")
     if args.ddpm_steps <= 0:
-        parser.error("--ddpm-steps deve ser maior que zero")
+        parser.error("--ddpm-steps must be greater than zero")
 
     text = args.input.read_text(encoding="utf-8").strip()
     if not text:
-        parser.error("o arquivo de entrada está vazio")
+        parser.error("input file is empty")
     if args.seed is not None:
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed_all(args.seed)
@@ -121,17 +121,17 @@ def main() -> None:
     elapsed = time.monotonic() - started_at
 
     if not outputs.speech_outputs or outputs.speech_outputs[0] is None:
-        parser.error("o modelo não retornou áudio")
+        parser.error("the model did not return audio")
     audio = outputs.speech_outputs[0]
     audio_duration = audio.shape[-1] / SAMPLE_RATE
     peak_memory_gib = torch.cuda.max_memory_allocated() / 1024**3
-    print(f"Áudio gerado: {audio_duration:.1f}s")
-    print(f"Tempo de geração: {elapsed:.1f}s (RTF {elapsed / audio_duration:.2f}x)")
-    print(f"Pico de VRAM alocado: {peak_memory_gib:.2f} GiB")
+    print(f"Generated audio: {audio_duration:.1f}s")
+    print(f"Generation time: {elapsed:.1f}s (RTF {elapsed / audio_duration:.2f}x)")
+    print(f"Peak allocated VRAM: {peak_memory_gib:.2f} GiB")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     processor.save_audio(audio, output_path=str(args.output))
-    print(f"WAV bruto salvo em: {args.output}")
+    print(f"Raw WAV saved to: {args.output}")
 
 
 if __name__ == "__main__":

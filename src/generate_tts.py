@@ -9,27 +9,12 @@ import tempfile
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PODCAST_NAME = "Faramir Cast"
-PORTUGUESE_MONTHS = (
-    "janeiro",
-    "fevereiro",
-    "março",
-    "abril",
-    "maio",
-    "junho",
-    "julho",
-    "agosto",
-    "setembro",
-    "outubro",
-    "novembro",
-    "dezembro",
-)
 
 
 def weekly_title(generated_at: datetime) -> str:
     days_since_sunday = (generated_at.weekday() + 1) % 7
     week_start = generated_at.date() - timedelta(days=days_since_sunday)
-    month = PORTUGUESE_MONTHS[week_start.month - 1]
-    return f"Podcast da semana do dia {week_start.day} de {month}"
+    return f"Weekly podcast - {week_start:%Y-%m-%d}"
 
 
 def inference_command(
@@ -98,58 +83,58 @@ def transcode(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Gera um arquivo MP3 a partir de um roteiro em texto usando VibeVoice."
+        description="Generate an MP3 file from a text script using VibeVoice."
     )
-    parser.add_argument("input", type=Path, help="Arquivo de entrada .txt em UTF-8.")
+    parser.add_argument("input", type=Path, help="Input .txt file encoded as UTF-8.")
     parser.add_argument(
         "-o",
         "--output",
         type=Path,
         default=None,
-        help="Arquivo de saída .mp3 ou .wav (padrão: MP3 com timestamp em output/).",
+        help="Output .mp3 or .wav file (default: timestamped MP3 in output/).",
     )
     parser.add_argument(
         "--voice-sample",
         type=Path,
         default=None,
-        help="WAV de referência da voz (padrão: voz Carter incluída no container).",
+        help="Reference voice WAV (default: Carter voice included in the container).",
     )
     parser.add_argument(
         "--sample-rate",
         type=int,
         default=None,
-        help="Taxa de amostragem em Hz (padrão: 24000 Hz do modelo).",
+        help="Sample rate in Hz (default: model's 24000 Hz).",
     )
     parser.add_argument(
         "--bit-depth",
         type=int,
         choices=(16, 24, 32),
         default=16,
-        help="Profundidade de bits PCM do WAV (padrão: 16).",
+        help="WAV PCM bit depth (default: 16).",
     )
     parser.add_argument(
         "--speed",
         type=float,
         default=0.8,
-        help="Velocidade da narração: menor que 1 desacelera (padrão: 0.8).",
+        help="Narration speed: below 1 slows it down (default: 0.8).",
     )
-    parser.add_argument("--seed", type=int, default=None, help="Semente opcional da geração.")
+    parser.add_argument("--seed", type=int, default=None, help="Optional generation seed.")
     parser.add_argument(
         "--cfg-scale",
         type=float,
         default=1.3,
-        help="Escala CFG do VibeVoice (padrão: 1.3).",
+        help="VibeVoice CFG scale (default: 1.3).",
     )
     parser.add_argument(
         "--ddpm-steps",
         type=int,
         default=10,
-        help="Passos DDPM do VibeVoice (padrão: 10).",
+        help="VibeVoice DDPM steps (default: 10).",
     )
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Permite substituir um arquivo de saída existente.",
+        help="Allow overwriting an existing output file.",
     )
     args = parser.parse_args()
 
@@ -163,35 +148,35 @@ def main() -> None:
         args.voice_sample = args.voice_sample.resolve()
 
     if args.input.suffix.lower() != ".txt":
-        parser.error("o arquivo de entrada deve ter extensão .txt")
+        parser.error("input file must have a .txt extension")
     if not args.input.is_file():
-        parser.error(f"arquivo de entrada não encontrado: {args.input}")
+        parser.error(f"input file not found: {args.input}")
     if args.output.suffix.lower() not in {".mp3", ".wav"}:
-        parser.error("o arquivo de saída deve ter extensão .mp3 ou .wav")
+        parser.error("output file must have a .mp3 or .wav extension")
     if args.output.exists() and not args.overwrite:
-        parser.error(f"arquivo de saída já existe: {args.output}; use --overwrite")
+        parser.error(f"output file already exists: {args.output}; use --overwrite")
     if args.voice_sample is not None and not args.voice_sample.is_file():
-        parser.error(f"amostra de voz não encontrada: {args.voice_sample}")
+        parser.error(f"voice sample not found: {args.voice_sample}")
     if args.sample_rate is not None and args.sample_rate <= 0:
-        parser.error("--sample-rate deve ser maior que zero")
+        parser.error("--sample-rate must be greater than zero")
     if not 0.5 <= args.speed <= 2.0:
-        parser.error("--speed deve estar entre 0.5 e 2.0")
+        parser.error("--speed must be between 0.5 and 2.0")
     if args.cfg_scale <= 0:
-        parser.error("--cfg-scale deve ser maior que zero")
+        parser.error("--cfg-scale must be greater than zero")
     if args.ddpm_steps <= 0:
-        parser.error("--ddpm-steps deve ser maior que zero")
+        parser.error("--ddpm-steps must be greater than zero")
     try:
         text = args.input.read_text(encoding="utf-8").strip()
     except UnicodeDecodeError:
-        parser.error("o arquivo de entrada deve usar codificação UTF-8")
+        parser.error("input file must use UTF-8 encoding")
     if not text:
-        parser.error("o arquivo de entrada está vazio")
+        parser.error("input file is empty")
 
     ffmpeg = shutil.which("ffmpeg")
     if ffmpeg is None:
-        parser.error("FFmpeg não encontrado; instale-o para processar o áudio")
+        parser.error("FFmpeg not found; install it to process the audio")
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    print("Gerando áudio com VibeVoice 1.5B em CUDA...")
+    print("Generating audio with VibeVoice 1.5B on CUDA...")
     with tempfile.TemporaryDirectory(dir=args.output.parent) as temporary_dir:
         raw_output = Path(temporary_dir) / "vibevoice.wav"
         command = inference_command(
@@ -205,9 +190,9 @@ def main() -> None:
         try:
             subprocess.run(command, check=True)
         except subprocess.CalledProcessError:
-            parser.error("VibeVoice não conseguiu gerar o áudio")
+            parser.error("VibeVoice could not generate the audio")
         if not raw_output.is_file():
-            parser.error("VibeVoice terminou sem criar o WAV esperado")
+            parser.error("VibeVoice finished without creating the expected WAV")
         try:
             transcode(
                 ffmpeg,
@@ -219,9 +204,9 @@ def main() -> None:
                 generated_at,
             )
         except subprocess.CalledProcessError:
-            parser.error("FFmpeg não conseguiu processar o áudio")
+            parser.error("FFmpeg could not process the audio")
 
-    print(f"Arquivo de áudio salvo em: {args.output}")
+    print(f"Audio file saved to: {args.output}")
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@ config:
 
 # Verify CUDA is available inside the generation image.
 gpu_check:
-    docker compose run --rm --entrypoint python vibevoice -c 'import torch; assert torch.cuda.is_available(), "CUDA não está disponível"; print(torch.cuda.get_device_name(0))'
+    docker compose run --rm --entrypoint python vibevoice -c 'import torch; assert torch.cuda.is_available(), "CUDA is not available"; print(torch.cuda.get_device_name(0))'
 
 # Run the unit tests inside the image.
 test:
@@ -27,9 +27,9 @@ test:
 check: config test
 
 # Generate an episode from a UTF-8 script. Extra arguments are forwarded to the CLI.
-create roteiro="roteiro.txt" *args:
+create script="script.txt" *args:
     mkdir -p .cache/huggingface output
-    docker compose run --rm vibevoice "{{ roteiro }}" --voice-sample "{{ voice_sample }}" {{ args }}
+    docker compose run --rm vibevoice "{{ script }}" --voice-sample "{{ voice_sample }}" {{ args }}
 
 # Send an existing audio file to the configured Audiobookshelf directory.
 send_server arquivo:

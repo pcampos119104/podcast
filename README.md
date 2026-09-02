@@ -1,102 +1,102 @@
 # AI Podcast
 
-Gerador local de episodios MP3 com VibeVoice 1.5B, executado em uma GPU NVIDIA por Docker Compose. O modelo suporta narracao longa e clonagem de voz por uma amostra WAV de referencia.
+Local MP3 podcast generator using VibeVoice 1.5B on an NVIDIA GPU through Docker Compose. The model supports long narration and voice cloning from a reference WAV sample.
 
-## Requisitos
+## Requirements
 
-- NVIDIA GPU com CUDA. O projeto foi configurado para uma RTX 3060 com 12 GB de VRAM.
-- Docker Engine, Docker Compose e NVIDIA Container Toolkit.
+- NVIDIA GPU with CUDA. The project is configured for an RTX 3060 with 12 GB of VRAM.
+- Docker Engine, Docker Compose, and NVIDIA Container Toolkit.
 - [just](https://github.com/casey/just).
-- `rsync` somente para `just send_server`.
-- Espaco em disco e conexao na primeira execucao. Os pesos do modelo ocupam cerca de 5,4 GB e ficam em `.cache/huggingface`.
+- `rsync` only for `just send_server`.
+- Disk space and an internet connection for the first run. Model weights use about 5.4 GB and are stored in `.cache/huggingface`.
 
-Python, uv e FFmpeg nao sao necessarios no host. A imagem CUDA contem o runtime Python, o VibeVoice, o FFmpeg e as dependencias de teste.
+Python, uv, and FFmpeg are not required on the host. The CUDA image contains the Python runtime, VibeVoice, FFmpeg, and test dependencies.
 
-O container fixa o fork comunitario do VibeVoice no commit `952326ddb264062466a888cf32a5b2f4e803e16e` e usa o checkpoint `vibevoice/VibeVoice-1.5B` na revisao `d374386b2a51d8e05277a64d85b296c89ec52376`.
+The container pins the community VibeVoice fork to commit `952326ddb264062466a888cf32a5b2f4e803e16e` and uses checkpoint `vibevoice/VibeVoice-1.5B` at revision `d374386b2a51d8e05277a64d85b296c89ec52376`.
 
-### GPU no Docker
+### Docker GPU Setup
 
-O Docker deve estar configurado com o NVIDIA Container Toolkit. Apos instalar o pacote conforme a [documentacao oficial](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html), configure e reinicie o daemon:
+Docker must be configured with the NVIDIA Container Toolkit. After installing the package according to the [official documentation](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html), configure and restart the daemon:
 
 ```bash
 sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
 ```
 
-Confirme a configuracao antes de construir a imagem:
+Confirm the configuration before building the image:
 
 ```bash
 docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
 ```
 
-## Uso
+## Usage
 
-Construa a imagem e confirme o acesso a GPU:
+Build the image and confirm GPU access:
 
 ```bash
 just build
 just gpu_check
 ```
 
-Crie um roteiro UTF-8 em ingles, por exemplo `roteiro.txt`, e gere o episodio:
+Create an English UTF-8 script, such as `script.txt`, and generate the episode:
 
 ```bash
-just create roteiro.txt
+just create script.txt
 ```
 
-O VibeVoice recebe todo o roteiro como um unico narrador e salva `output/faramir-cast-AAAAMMDD-HHMMSS.mp3`. O audio nativo e 24 kHz; por padrao, o MP3 e desacelerado para `0.8x`.
+VibeVoice receives the complete script as a single narrator and saves `output/faramir-cast-YYYYMMDD-HHMMSS.mp3`. Native audio is 24 kHz; by default, the MP3 is slowed to `0.8x`. Its title metadata is set to `Weekly podcast - YYYY-MM-DD`, using the Sunday that starts the episode's week.
 
-Na primeira geracao, o Hugging Face baixa o checkpoint para `.cache/huggingface`. As execucoes seguintes reutilizam esse cache. O diretorio e ignorado pelo Git.
+On the first generation, Hugging Face downloads the checkpoint to `.cache/huggingface`. Later runs reuse this cache. The directory is ignored by Git.
 
-### Voz
+### Voice
 
-`just create` usa como referencia `assets/voices/nova_reference.wav`. O arquivo e encaminhado ao VibeVoice pelo argumento `--voice-sample`; a API usada pelo projeto recebe somente o WAV em `voice_samples`, portanto nao requer a transcricao da referencia.
+`just create` uses `assets/voices/alice.wav` as its reference. The file is passed to VibeVoice through `--voice-sample`; the project API only receives the WAV in `voice_samples`, so it does not require a reference transcript.
 
-Para usar outra voz de referencia, informe `--voice-sample` depois do roteiro. Esse argumento sobrescreve a referencia Nova:
+To use another reference voice, pass `--voice-sample` after the script. This overrides the default Alice reference:
 
 ```bash
-just create roteiro.txt --voice-sample assets/voices/minha-voz.wav --output output/episodio.mp3
+just create script.txt --voice-sample assets/voices/my-voice.wav --output output/episode.mp3
 ```
 
-Ao executar `src/vibevoice_infer.py` diretamente sem `--voice-sample`, o padrao do VibeVoice continua sendo `en-Carter_man.wav` incluida no container.
+When running `src/vibevoice_infer.py` directly without `--voice-sample`, VibeVoice still defaults to `en-Carter_man.wav`, included in the container.
 
-Use somente amostras para as quais voce tem consentimento e direitos de uso.
+Only use samples for which you have consent and usage rights.
 
-### Opcoes
+### Options
 
-Os argumentos apos o roteiro sao encaminhados para a CLI de geracao:
+Arguments after the script are passed through to the generation CLI:
 
 ```text
--o, --output ARQUIVO       Caminho do MP3 ou WAV de saida.
---voice-sample ARQUIVO     WAV de referencia para clonagem de voz.
---sample-rate HZ           Reamostra o audio de 24 kHz para a taxa informada.
---bit-depth {16,24,32}     Profundidade de bits quando a saida e WAV.
---speed VELOCIDADE         Velocidade final entre 0.5 e 2.0 (padrao: 0.8).
---seed N                   Semente opcional para reproducao.
---cfg-scale N              Escala CFG do VibeVoice (padrao: 1.3).
---ddpm-steps N             Passos DDPM do VibeVoice (padrao: 10).
---overwrite                Permite substituir um arquivo de saida existente.
+-o, --output FILE          Output MP3 or WAV path.
+--voice-sample FILE        Reference WAV for voice cloning.
+--sample-rate HZ           Resample 24 kHz audio to the specified rate.
+--bit-depth {16,24,32}     Bit depth when the output is WAV.
+--speed SPEED              Final speed from 0.5 to 2.0 (default: 0.8).
+--seed N                   Optional seed for reproducibility.
+--cfg-scale N              VibeVoice CFG scale (default: 1.3).
+--ddpm-steps N             VibeVoice DDPM steps (default: 10).
+--overwrite                Allow an existing output file to be replaced.
 ```
 
-### Envio ao servidor
+### Upload to Server
 
-O envio usa o `rsync` e a autenticacao SSH do host. Isso mantem chaves e configuracao SSH fora do container:
+Uploads use host `rsync` and SSH authentication. This keeps SSH keys and configuration outside the container:
 
 ```bash
-just send_server output/faramir-cast-AAAAMMDD-HHMMSS.mp3
+just send_server output/faramir-cast-YYYYMMDD-HHMMSS.mp3
 ```
 
-O destino padrao e `homelab:/home/pcampos/audiobookshelf/faramir_cast/` e requer o alias SSH `homelab` configurado no host.
+The default destination is `homelab:/home/pcampos/audiobookshelf/faramir_cast/` and requires the `homelab` SSH alias to be configured on the host.
 
-## Verificacao
+## Verification
 
 ```bash
 just check
 just gpu_check
 ```
 
-Para a primeira prova de uso, comece com 1-2 minutos de texto e acompanhe o pico de VRAM reportado pelo container. O modelo e carregado em BF16 e prefere FlashAttention 2; se ele nao estiver disponivel, o container cai para SDPA, que pode ser mais lento e consumir mais memoria.
+For an initial smoke test, start with 1-2 minutes of text and monitor the container's peak VRAM. The model loads in BF16 and prefers FlashAttention 2; when unavailable, the container falls back to SDPA, which may be slower and use more memory.
 
-## Limitacoes e Uso Responsavel
+## Limitations and Responsible Use
 
-O modelo completo e voltado para ingles e chines; este projeto usa ingles. A geracao longa pode levar mais tempo que a duracao do audio em uma RTX 3060. O cartao do modelo informa um aviso audivel de conteudo gerado por IA e uma marca-d'agua de procedencia. Revise o conteudo antes de publicar e nao use clonagem de voz sem consentimento explicito.
+The full model is intended for English and Chinese; this project generates English only. Long generation can take longer than the audio duration on an RTX 3060. The model card states that generated content contains an audible AI disclosure and provenance watermark. Review content before publishing, and do not clone voices without explicit consent.

@@ -218,6 +218,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+script.txt
 roteiro.txt
 output/
 temp/

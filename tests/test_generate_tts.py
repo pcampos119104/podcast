@@ -7,12 +7,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from generate_tts import PROJECT_ROOT, inference_command, transcode, weekly_title
 
 
-def test_inference_command_passes_nova_reference_and_generation_options() -> None:
-    nova_reference = PROJECT_ROOT / "assets" / "voices" / "nova_reference.wav"
+def test_inference_command_passes_voice_sample_and_generation_options() -> None:
+    voice_sample = PROJECT_ROOT / "assets" / "voices" / "alice.wav"
     command = inference_command(
-        PROJECT_ROOT / "roteiro.txt",
+        PROJECT_ROOT / "script.txt",
         PROJECT_ROOT / "output" / "raw.wav",
-        nova_reference,
+        voice_sample,
         seed=42,
         cfg_scale=1.3,
         ddpm_steps=10,
@@ -22,7 +22,7 @@ def test_inference_command_passes_nova_reference_and_generation_options() -> Non
     assert Path(command[1]).name == "vibevoice_infer.py"
     assert command[2:] == [
         "--input",
-        str(PROJECT_ROOT / "roteiro.txt"),
+        str(PROJECT_ROOT / "script.txt"),
         "--output",
         str(PROJECT_ROOT / "output" / "raw.wav"),
         "--cfg-scale",
@@ -30,14 +30,14 @@ def test_inference_command_passes_nova_reference_and_generation_options() -> Non
         "--ddpm-steps",
         "10",
         "--voice-sample",
-        str(nova_reference),
+        str(voice_sample),
         "--seed",
         "42",
     ]
 
 
-def test_weekly_title_uses_previous_sunday() -> None:
-    assert weekly_title(datetime(2026, 8, 26)) == "Podcast da semana do dia 23 de agosto"
+def test_weekly_title_uses_previous_sunday_in_iso_format() -> None:
+    assert weekly_title(datetime(2026, 8, 26)) == "Weekly podcast - 2026-08-23"
 
 
 def test_transcode_disables_ffmpeg_stdin(monkeypatch, tmp_path: Path) -> None:
