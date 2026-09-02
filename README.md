@@ -2,6 +2,37 @@
 
 Local MP3 podcast generator using VibeVoice 1.5B on an NVIDIA GPU through Docker Compose. The model supports long narration and voice cloning from a reference WAV sample.
 
+## Architecture
+
+The project is a local, batch-oriented audio pipeline. The host only needs Docker, the NVIDIA runtime, and `just`; all model and audio-processing dependencies run inside the `podcast-vibevoice:1.5b` container.
+
+```mermaid
+flowchart LR
+    Script[UTF-8 text script] --> Just[just create]
+    Voice[Reference WAV] --> Just
+    Just --> Compose[Docker Compose]
+    Compose --> Container[podcast-vibevoice:1.5b container]
+    Container --> TTS[generate_tts.py]
+    TTS --> Infer[vibevoice_infer.py]
+    Infer --> GPU[NVIDIA GPU: CUDA / PyTorch BF16]
+    GPU --> WAV[Temporary 24 kHz WAV]
+    WAV --> FFmpeg[FFmpeg]
+    FFmpeg --> MP3[MP3 or WAV in output/]
+    Infer <--> HF[Hugging Face checkpoint cache]
+```
+
+### Runtime Layers
+
+- **Host and command interface:** `just` exposes the build, validation, GPU check, test, generation, and optional upload commands. `just create` starts the one-off Compose container; `rsync` and SSH perform the optional `send_server` upload directly from the host.
+- **Container orchestration:** `compose.yaml` builds and runs the `vibevoice` service as image `podcast-vibevoice:1.5b`, with all NVIDIA GPUs available, 8 GB of shared memory, and `/workspace` as the working directory. The NVIDIA Container Toolkit passes the host driver and GPU through Docker; CUDA itself runs inside the container.
+- **CUDA image:** `containers/vibevoice/Dockerfile` starts from `pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel`. It installs Git, FFmpeg, pytest, and the community VibeVoice fork fixed at commit `952326ddb264062466a888cf32a5b2f4e803e16e`. This makes the Python runtime, PyTorch, VibeVoice, and audio encoder independent from host installations.
+- **Model stack:** VibeVoice 1.5B is loaded from `vibevoice/VibeVoice-1.5B` at a fixed Hugging Face revision. Its processor prepares the normalized single-speaker script and reference WAV; PyTorch places model tensors on CUDA and loads the model in BF16. Inference prefers FlashAttention 2 for attention efficiency and falls back to PyTorch SDPA when FlashAttention is unavailable.
+- **Audio pipeline:** `src/generate_tts.py` validates CLI inputs and launches `src/vibevoice_infer.py`. The inference script generates a raw 24 kHz WAV in a temporary directory and reports duration, real-time factor, and peak allocated VRAM. FFmpeg then applies speed and optional sample-rate conversion, encodes MP3 with metadata, or writes PCM WAV with the selected bit depth.
+
+### Persistent Data and Volumes
+
+Docker Compose mounts the repository at `/workspace`, so the container reads the input script and voice samples from the host and writes final files to the host `output/` directory. The explicit `./.cache/huggingface:/workspace/.cache/huggingface` mount, also configured through `HF_HOME`, persists model snapshots and downloads across ephemeral `docker compose run --rm` containers. Both `output/` and the cache are ignored by Git.
+
 ## Requirements
 
 - NVIDIA GPU with CUDA. The project is configured for an RTX 3060 with 12 GB of VRAM.
