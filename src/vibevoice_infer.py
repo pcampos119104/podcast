@@ -11,11 +11,13 @@ SAMPLE_RATE = 24000
 
 
 def narration_script(text: str) -> str:
+    """Normalize input paragraphs and format them as a single speaker script."""
     normalized = " ".join(line.strip() for line in text.splitlines() if line.strip())
     return f"Speaker 1: {normalized}"
 
 
 def load_processor(processor_class: Any, model_id: str, revision: str) -> Any:
+    """Load the VibeVoice processor config without passing its revision to Qwen."""
     from huggingface_hub import snapshot_download
 
     processor_path = snapshot_download(
@@ -29,6 +31,7 @@ def load_processor(processor_class: Any, model_id: str, revision: str) -> Any:
 
 
 def load_model(model_id: str, revision: str, torch: Any) -> tuple[Any, Any]:
+    """Load the processor and CUDA/BF16 model, falling back to SDPA if needed."""
     model_module = import_module("vibevoice.modular.modeling_vibevoice_inference")
     processor_module = import_module("vibevoice.processor.vibevoice_processor")
     model_class = model_module.VibeVoiceForConditionalGenerationInference
@@ -44,6 +47,7 @@ def load_model(model_id: str, revision: str, torch: Any) -> tuple[Any, Any]:
             attn_implementation="flash_attention_2",
         )
     except Exception as error:
+        # Some CUDA environments lack FlashAttention; SDPA remains compatible.
         print(f"FlashAttention 2 unavailable ({error}); using SDPA.")
         model = model_class.from_pretrained(
             model_id,
@@ -57,6 +61,7 @@ def load_model(model_id: str, revision: str, torch: Any) -> tuple[Any, Any]:
 
 
 def main() -> None:
+    """Generate a single-speaker WAV file from a text script using VibeVoice."""
     torch = import_module("torch")
     parser = argparse.ArgumentParser(
         description="Generate a single-narrator WAV with VibeVoice 1.5B on CUDA."
@@ -100,6 +105,7 @@ def main() -> None:
         return_tensors="pt",
         return_attention_mask=True,
     )
+    # Processor metadata stays on the host; only tensors are model inputs on CUDA.
     inputs = {
         name: value.to("cuda") if torch.is_tensor(value) else value
         for name, value in inputs.items()
@@ -117,6 +123,7 @@ def main() -> None:
             verbose=True,
             is_prefill=True,
         )
+    # Include queued CUDA work in elapsed time before calculating the RTF.
     torch.cuda.synchronize()
     elapsed = time.monotonic() - started_at
 

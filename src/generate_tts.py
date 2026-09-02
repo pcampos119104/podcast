@@ -12,6 +12,7 @@ PODCAST_NAME = "Faramir Cast"
 
 
 def weekly_title(generated_at: datetime) -> str:
+    """Return the episode title dated with the Sunday that starts its week."""
     days_since_sunday = (generated_at.weekday() + 1) % 7
     week_start = generated_at.date() - timedelta(days=days_since_sunday)
     return f"Weekly podcast - {week_start:%Y-%m-%d}"
@@ -25,6 +26,7 @@ def inference_command(
     cfg_scale: float,
     ddpm_steps: int,
 ) -> list[str]:
+    """Build the VibeVoice inference command for a temporary WAV output."""
     command = [
         sys.executable,
         str(Path(__file__).with_name("vibevoice_infer.py")),
@@ -53,12 +55,14 @@ def transcode(
     speed: float,
     generated_at: datetime,
 ) -> None:
+    """Convert a generated WAV to MP3 or PCM WAV with the requested settings."""
     command = [ffmpeg, "-nostdin", "-y", "-i", str(source_path)]
     if speed != 1.0:
         command.extend(["-filter:a", f"atempo={speed}"])
     if sample_rate is not None:
         command.extend(["-ar", str(sample_rate)])
     if output_path.suffix.lower() == ".mp3":
+        # MP3 embeds podcast metadata, while WAV preserves a PCM bit depth.
         command.extend(
             [
                 "-codec:a",
@@ -82,6 +86,7 @@ def transcode(
 
 
 def main() -> None:
+    """Run inference and transcode the resulting audio from the command line."""
     parser = argparse.ArgumentParser(
         description="Generate an MP3 file from a text script using VibeVoice."
     )
@@ -178,6 +183,7 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     print("Generating audio with VibeVoice 1.5B on CUDA...")
     with tempfile.TemporaryDirectory(dir=args.output.parent) as temporary_dir:
+        # Keep the model's raw WAV isolated until FFmpeg produces the final file.
         raw_output = Path(temporary_dir) / "vibevoice.wav"
         command = inference_command(
             args.input,
